@@ -278,15 +278,15 @@
     (:action move_right_others
     :parameters ()
     :precondition
-        (exists (?x - locateable) (moved_right ?x))
+        (exists (?x - locateable) (moved_right ?x)) ; There exists an object x that has been moved to the right
    :effect 
-    (forall (?x ?y - locateable ?l1 ?l2 - location)
+    (forall (?x ?y - locateable ?l1 ?l2 - location) 
         (when 
             (and 
                 (moved_right ?x)
                 (is_at ?x ?l1)
                 (is_at ?y ?l1)
-                (not (exists (?z - locateable) 
+                (not (exists (?z - locateable)  ; There does not exist another object z at location l2 that is not pushable to the right
                         (and
                             (is_at ?z ?l2)
                             (not (is_pushable_right ?z))
@@ -315,7 +315,7 @@
                 (moved_left ?x)
                 (is_at ?x ?l1)
                 (is_at ?y ?l1)
-                (not (exists (?z - locateable) 
+                (not (exists (?z - locateable) ; There does not exist another object z at location l2 that is not pushable to the left
                         (and
                             (is_at ?z ?l2)
                             (not (is_pushable_right ?z))
@@ -344,7 +344,7 @@
                 (moved_up ?x)
                 (is_at ?x ?l1)
                 (is_at ?y ?l1)
-                (not (exists (?z - locateable) 
+                (not (exists (?z - locateable) ; There does not exist another object z at location l2 that is not pushable to the up
                         (and
                             (is_at ?z ?l2)
                             (not (is_pushable_right ?z))
@@ -373,7 +373,7 @@
                 (moved_down ?x)
                 (is_at ?x ?l1)
                 (is_at ?y ?l1)
-                (not (exists (?z - locateable) 
+                (not (exists (?z - locateable) ; There does not exist another object z at location l2 that is not pushable to the down
                         (and
                             (is_at ?z ?l2)
                             (not (is_pushable_right ?z))
@@ -412,7 +412,7 @@
                     (moved_right ?x)
                     (is_at ?x ?l)
                     (not 
-                        (exists (?y - locateable)
+                        (exists (?y - locateable) ; There is no other object at location l, meaning x has not pushed other objects
                             (is_at ?y ?l)
                         )
                     )
