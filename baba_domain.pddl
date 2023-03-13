@@ -25,19 +25,31 @@
 
         (is_at ?x - locateable ?l1 - location)
         (is_text ?x - text)
+
+        (is_you ?x - sprite)
+        (is_win ?x - sprite)
+        (is_stop ?x - sprite)
         
-        (is_you ?x - locateable)
-        (is_win ?x - locateable)
-        (is_stop ?x - locateable)
-        ;(is_background ?x - locateable) for when the object has no attributes (can be passed through but is still at a location)
 
         (is_rock ?x - locateable)
         (is_wall ?x - locateable)
         (is_flag ?x - locateable)
         (is_baba ?x - locateable)
 
+        (is_same ?n1 ?n2 - noun)
+        (has_noun ?x - sprite ?n - noun)
+        (has_property ?x - locateable ?p - property)
+
+        (change_nouns ?n1 ?n2 - noun)
+
+        (rock_is_rock)
+        (wall_is_wall)
+        (flag_is_flag)
+        (baba_is_baba)
+        (is_itself ?x - noun)
         
 
+        (is_push ?x - locateable)
         (is_pushable_right ?x - locateable)
         (is_pushable_left ?x - locateable)
         (is_pushable_up ?x - locateable)
@@ -47,6 +59,15 @@
         (moved_left ?x - locateable)
         (moved_down ?x - locateable)
         (moved_up ?x - locateable)
+
+        (choose_move)
+        (text_moved)
+        (properties_removed)
+        (is_itself_checked)
+        (nouns_need_change)
+        (nouns_checked)
+        (rules_updated)
+        (start)
     )
 
     ; Used to move the player (objects that have is_you)
@@ -518,19 +539,195 @@
         )
         )
 )
-
-
-    ; Used to update objects to be pushable or not
-    (:action update_others
-        :parameters ()
-        :precondition (and )
-        :effect (and )
-    )
     
     ; Used to update rules if there were any changes to sentence in the game
-    (:action update_rules
+    (:action remove_properties
         :parameters ()
-        :precondition (and )
-        :effect (and )
+        :precondition (text_moved)
+        :effect 
+        (and
+            (forall (?x - sprite ?p - property)
+                (when 
+                    (has_property ?x ?p) 
+                    (not (has_property ?x ?p))
+                )
+            )
+            (properties_removed)
+            (not (text_moved))
+        )
     )
+
+    (:action update_x_is_x
+        :parameters ()
+        :precondition (properties_removed)
+        :effect 
+        (and
+            ; go through all sentences and check if the left and right nouns are the same
+            (forall (?middle - is ?left ?right ?other - noun)
+                (when 
+                    (and ;condition
+                        (is_same ?left ?right)
+                        (exists (?l1 ?l2 ?l3 - locateable) 
+                            (and
+                                (is_at ?left ?l1)
+                                (is_at ?middle ?l2)
+                                (is_at ?right ?l3)
+                                (or
+                                    (and
+                                    (right_connected ?l1 ?l2)
+                                    (right_connected ?l2 ?l3)
+                                    )
+                                    (and
+                                    (down_connected ?l1 ?l2)
+                                    (down_connected ?l2 ?l3)
+                                    )
+                                )
+                            )
+                        )
+                        ; this allows us to make all of the nouns of the same type have the predicate 'is_itself'
+                        ; this is because we need to know if other nouns of the same type get used in a different sentence
+                        (or
+                            (is_same ?other ?left)
+                            (= ?left ?other)
+                        )
+                    )
+                    (is_itself ?other)
+                )
+            )
+            (not (properties_removed))
+            (is_itself_checked)
+        )
+    )
+
+    ; (:action update_x_is_y
+    ;     :parameters ()
+    ;     :precondition (is_itself_checked)
+    ;     :effect 
+    ;     (and
+    ;         ; looking for all sentences with two nouns on either side (that are not the same)
+    ;         (forall (?middle - is ?left ?right - noun ?l1 ?l2 ?l3 - location)
+    ;             (when 
+    ;                 (and ;condition
+    ;                     (not (is_itself ?left))
+    ;                     (not (is_same ?left ?right))
+    ;                     (is_at ?left ?l1)
+    ;                     (is_at ?middle ?l2)
+    ;                     (is_at ?right ?l3)
+    ;                     (or
+    ;                         (and
+    ;                         (right_connected ?l1 ?l2)
+    ;                         (right_connected ?l2 ?l3)
+    ;                         )
+    ;                         (and
+    ;                         (down_connected ?l1 ?l2)
+    ;                         (down_connected ?l2 ?l3)
+    ;                         )
+    ;                     )
+    ;                 )
+    ;                 ; flag the nouns to change
+    ;                 (and
+    ;                     (change_nouns ?left ?right)
+    ;                     (nouns_need_change)
+    ;                 )
+    ;             )
+    ;         )
+    ;         (not (is_itself_checked))
+    ;         (nouns_checked)
+    ;     )
+    ; )
+
+    ; ; if any sentences were noun1-is-noun2, change all sprites of the first noun to the second
+    ; (:action change_nouns
+    ;     :parameters ()
+    ;     :precondition (nouns_need_change)
+    ;     :effect 
+    ;     (and
+    ;         ; n3 is needed because we need to delink sprites to all nouns of type noun1, and link to all types of noun2
+    ;         (forall (?n1 ?n2 ?n3 - noun ?x - sprite)
+    ;             (and
+    ;                 ; delinking to noun1
+    ;                 (when 
+    ;                     (and 
+    ;                         (change_nouns ?n1 ?n2)
+    ;                         (has_noun ?x ?n1)
+    ;                         (or
+    ;                             (is_same ?n1 ?n3)
+    ;                             (= ?n1 ?n3)
+    ;                         )
+    ;                     )
+    ;                     (not (has_noun ?x ?n3))
+    ;                 )
+    ;                 ; linking to noun2
+    ;                 (when 
+    ;                     (and 
+    ;                         (change_nouns ?n1 ?n2)
+    ;                         (has_noun ?x ?n2)
+    ;                         (or
+    ;                             (is_same ?n2 ?n3)
+    ;                             (= ?n2 ?n3)
+    ;                         )
+    ;                     )
+    ;                     (has_noun ?x ?n3)
+    ;                 )
+    ;             )
+    ;         ) 
+    ;     )
+    ; )
+    
+
+    ; (:action add_properties
+    ;     :parameters ()
+    ;     :precondition (and (nouns_checked) (not (nouns_need_change)))
+    ;     :effect 
+    ;     (and
+    ;         (forall (?middle - is ?left - noun ?right - property ?l1 ?l2 ?l3 - location) 
+    ;             (when 
+    ;                 (and ;condition
+    ;                     (is_at ?left ?l1)
+    ;                     (is_at ?middle ?l2)
+    ;                     (is_at ?right ?l3)
+    ;                     (or
+    ;                         (and
+    ;                         (right_connected ?l1 ?l2)
+    ;                         (right_connected ?l2 ?l3)
+    ;                         )
+    ;                         (and
+    ;                         (down_connected ?l1 ?l2)
+    ;                         (down_connected ?l2 ?l3)
+    ;                         )
+    ;                     )
+    ;                 ) 
+    ;                 (forall (?x - sprite)
+    ;                     (when 
+    ;                         (has_noun ?x ?left) 
+    ;                         (has_property ?x ?right)
+    ;                     ) 
+    ;                 )
+    ;             )
+    ;         )
+    ;         (not (nouns_checked))
+    ;         (rules_updated)
+    ;     )
+    ; )
+
+    (:action setup
+        :parameters ()
+        :precondition (start)
+        :effect 
+        (and
+            (forall (?n1 ?n2 - noun ?x - sprite)
+                (when 
+                    (and
+                        (has_noun ?x ?n1)
+                        (is_same ?n1 ?n2) 
+                    )
+                    (has_noun ?x ?n2)
+                ) 
+            )
+            (not (start))
+            (text_moved)
+        )
+    )
+
+
 )
