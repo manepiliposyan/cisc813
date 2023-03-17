@@ -36,17 +36,13 @@
         (is_flag ?x - locateable)
         (is_baba ?x - locateable)
 
-        (is_same ?n1 ?n2 - noun)
-        (has_noun ?x - sprite ?n - noun)
-        (has_property ?x - locateable ?p - property)
 
-        (change_nouns ?n1 ?n2 - noun)
 
         (rock_is_rock)
         (wall_is_wall)
         (flag_is_flag)
         (baba_is_baba)
-        (is_itself ?x - noun)
+        
         
 
         (is_push ?x - locateable)
@@ -65,9 +61,27 @@
         (properties_removed)
         (is_itself_checked)
         (nouns_need_change)
-        (nouns_checked)
+        (relink_nouns)
+        (nouns_changed)
+        (sentences_checked)
         (rules_updated)
         (start)
+        (temp_check)
+
+
+        (is_same ?n1 ?n2 - text)
+        (has_noun ?x - sprite ?n - noun)
+        (has_property ?x - locateable ?p - property)
+
+        (is_noun ?n - text)
+        (is_operator ?o - text)
+        (is_property ?p - text)
+        (is_itself ?n - text)
+
+        (checked_horizontal ?o - operator)
+        (checked_vertical ?o - operator)
+        (change_nouns ?n1 ?n2 - text)
+        (give_property ?n ?p - text)
     )
 
     ; Used to move the player (objects that have is_you)
@@ -557,159 +571,278 @@
         )
     )
 
-    (:action update_x_is_x
-        :parameters ()
-        :precondition (properties_removed)
+    ; checking all horizontal sentences
+    (:action check_sentences_horizontal
+        :parameters (?l1 ?l2 ?l3 - location ?middle - is)
+        :precondition 
+        (and 
+            (properties_removed)
+            (right_connected ?l2 ?l1)
+            (right_connected ?l1 ?l3)
+            (is_at ?middle ?l1)
+            (not (checked_horizontal ?middle))
+        )
         :effect 
         (and
-            ; go through all sentences and check if the left and right nouns are the same
-            (forall (?middle - is ?left ?right ?other - noun)
-                (when 
-                    (and ;condition
-                        (is_same ?left ?right)
-                        (exists (?l1 ?l2 ?l3 - locateable) 
-                            (and
-                                (is_at ?left ?l1)
-                                (is_at ?middle ?l2)
-                                (is_at ?right ?l3)
-                                (or
-                                    (and
-                                    (right_connected ?l1 ?l2)
-                                    (right_connected ?l2 ?l3)
-                                    )
-                                    (and
-                                    (down_connected ?l1 ?l2)
-                                    (down_connected ?l2 ?l3)
-                                    )
-                                )
-                            )
+            (forall (?left ?right - text)
+                (and
+                    (when 
+                        (and
+                            (is_at ?left ?l2)
+                            (is_at ?right ?l3)
+                            (is_noun ?left)
+                            (is_noun ?right)
+                            (is_same ?left ?right)
                         )
-                        ; this allows us to make all of the nouns of the same type have the predicate 'is_itself'
-                        ; this is because we need to know if other nouns of the same type get used in a different sentence
-                        (or
-                            (is_same ?other ?left)
-                            (= ?left ?other)
-                        )
+                        (is_itself ?left)
                     )
-                    (is_itself ?other)
+                    (when 
+                        (and
+                            (is_at ?left ?l2)
+                            (is_at ?right ?l3)
+                            (is_noun ?left)
+                            (is_noun ?right)
+                            (not (is_same ?left ?right))
+                        ) 
+                        (and
+                            (change_nouns ?left ?right)
+                        )   
+                    )
+                    (when 
+                        (and
+                            (is_at ?left ?l2)
+                            (is_at ?right ?l3)
+                            (is_noun ?left)
+                            (is_property ?right)
+                        ) 
+                        (give_property ?left ?right)
+                    )
                 )
             )
-            (not (properties_removed))
-            (is_itself_checked)
+            (checked_horizontal ?middle)
         )
     )
 
-    ; (:action update_x_is_y
-    ;     :parameters ()
-    ;     :precondition (is_itself_checked)
-    ;     :effect 
-    ;     (and
-    ;         ; looking for all sentences with two nouns on either side (that are not the same)
-    ;         (forall (?middle - is ?left ?right - noun ?l1 ?l2 ?l3 - location)
-    ;             (when 
-    ;                 (and ;condition
-    ;                     (not (is_itself ?left))
-    ;                     (not (is_same ?left ?right))
-    ;                     (is_at ?left ?l1)
-    ;                     (is_at ?middle ?l2)
-    ;                     (is_at ?right ?l3)
-    ;                     (or
-    ;                         (and
-    ;                         (right_connected ?l1 ?l2)
-    ;                         (right_connected ?l2 ?l3)
-    ;                         )
-    ;                         (and
-    ;                         (down_connected ?l1 ?l2)
-    ;                         (down_connected ?l2 ?l3)
-    ;                         )
-    ;                     )
-    ;                 )
-    ;                 ; flag the nouns to change
-    ;                 (and
-    ;                     (change_nouns ?left ?right)
-    ;                     (nouns_need_change)
-    ;                 )
-    ;             )
-    ;         )
-    ;         (not (is_itself_checked))
-    ;         (nouns_checked)
-    ;     )
-    ; )
+    ; checking all vertical sentences
+    (:action check_sentences_vertical
+        :parameters (?l1 ?l2 ?l3 - location ?middle - is)
+        :precondition 
+        (and 
+            (properties_removed)
+            (down_connected ?l2 ?l1)
+            (down_connected ?l1 ?l3)
+            (is_at ?middle ?l1)
+            (not (checked_vertical ?middle))
+        )
+        :effect 
+        (and
+            (forall (?left ?right - text)
+                (and
+                    (when 
+                        (and
+                            (is_at ?left ?l2)
+                            (is_at ?right ?l3)
+                            (is_noun ?left)
+                            (is_noun ?right)
+                            (is_same ?left ?right)
+                        )
+                        (is_itself ?left)
+                    )
+                    (when 
+                        (and
+                            (is_at ?left ?l2)
+                            (is_at ?right ?l3)
+                            (is_noun ?left)
+                            (is_noun ?right)
+                            (not (is_same ?left ?right))
+                        ) 
+                        (and
+                            (change_nouns ?left ?right)
+                        )   
+                    )
+                    (when 
+                        (and
+                            (is_at ?left ?l2)
+                            (is_at ?right ?l3)
+                            (is_noun ?left)
+                            (is_property ?right)
+                        ) 
+                        (give_property ?left ?right)
+                    )
+                )
+            )
+            (checked_vertical ?middle)
+        )
+    )
 
-    ; ; if any sentences were noun1-is-noun2, change all sprites of the first noun to the second
-    ; (:action change_nouns
-    ;     :parameters ()
-    ;     :precondition (nouns_need_change)
-    ;     :effect 
-    ;     (and
-    ;         ; n3 is needed because we need to delink sprites to all nouns of type noun1, and link to all types of noun2
-    ;         (forall (?n1 ?n2 ?n3 - noun ?x - sprite)
-    ;             (and
-    ;                 ; delinking to noun1
-    ;                 (when 
-    ;                     (and 
-    ;                         (change_nouns ?n1 ?n2)
-    ;                         (has_noun ?x ?n1)
-    ;                         (or
-    ;                             (is_same ?n1 ?n3)
-    ;                             (= ?n1 ?n3)
-    ;                         )
-    ;                     )
-    ;                     (not (has_noun ?x ?n3))
-    ;                 )
-    ;                 ; linking to noun2
-    ;                 (when 
-    ;                     (and 
-    ;                         (change_nouns ?n1 ?n2)
-    ;                         (has_noun ?x ?n2)
-    ;                         (or
-    ;                             (is_same ?n2 ?n3)
-    ;                             (= ?n2 ?n3)
-    ;                         )
-    ;                     )
-    ;                     (has_noun ?x ?n3)
-    ;                 )
-    ;             )
-    ;         ) 
-    ;     )
-    ; )
+    ; checking operators that are on the edge (cannot have horizontal sentences)
+    (:action operator_on_edge_horizontal
+        :parameters (?l - location ?o - is)
+        :precondition 
+        (and 
+            (properties_removed)
+            (not (checked_horizontal ?o))
+            (is_at ?o ?l)
+            (or
+                (right_edge ?l)
+                (left_edge ?l)
+            )
+        )
+        :effect (checked_horizontal ?o)
+    )
+
+    ; checking operators that are on the edge (cannot have vertical sentences)
+    (:action operator_on_edge_vertical
+        :parameters (?l - location ?o - is)
+        :precondition 
+        (and 
+            (properties_removed)
+            (not (checked_vertical ?o))
+            (is_at ?o ?l)
+            (or
+                (up_edge ?l)
+                (down_edge ?l)
+            )
+        )
+        :effect (checked_vertical ?o)
+    )
+
+    ; for testing? when operators are not placed at a location the planner gets stuck :/
+    (:action operator_missing_location
+        :parameters (?o - is)
+        :precondition (not (exists (?l - location) (is_at ?o ?l)))
+        :effect (and (checked_horizontal ?o) (checked_vertical ?o))
+    )
     
+    ; making sure all sentences are checked before going to the next step
+    (:action checked_all
+        :parameters ()
+        :precondition 
+        (forall (?o - is)
+            (and
+                (checked_horizontal ?o)
+                (checked_vertical ?o)
+            )
+        )
+        :effect 
+        (and 
+            (forall (?n1 ?n2 - noun) 
+                (when 
+                    (and
+                        (is_itself ?n1)
+                        (is_same ?n1 ?n2)
+                    ) 
+                    (is_itself ?n2)
+                )
+            )
+            (forall (?o - is)
+                (and
+                    (not (checked_horizontal ?o))
+                    (not (checked_vertical ?o))
+                )
+            )
+            (not (properties_removed))
+            (sentences_checked)
+        )
+    )
 
-    ; (:action add_properties
-    ;     :parameters ()
-    ;     :precondition (and (nouns_checked) (not (nouns_need_change)))
-    ;     :effect 
-    ;     (and
-    ;         (forall (?middle - is ?left - noun ?right - property ?l1 ?l2 ?l3 - location) 
-    ;             (when 
-    ;                 (and ;condition
-    ;                     (is_at ?left ?l1)
-    ;                     (is_at ?middle ?l2)
-    ;                     (is_at ?right ?l3)
-    ;                     (or
-    ;                         (and
-    ;                         (right_connected ?l1 ?l2)
-    ;                         (right_connected ?l2 ?l3)
-    ;                         )
-    ;                         (and
-    ;                         (down_connected ?l1 ?l2)
-    ;                         (down_connected ?l2 ?l3)
-    ;                         )
-    ;                     )
-    ;                 ) 
-    ;                 (forall (?x - sprite)
-    ;                     (when 
-    ;                         (has_noun ?x ?left) 
-    ;                         (has_property ?x ?right)
-    ;                     ) 
-    ;                 )
-    ;             )
-    ;         )
-    ;         (not (nouns_checked))
-    ;         (rules_updated)
-    ;     )
-    ; )
+    ; changing nouns from one into another
+    (:action change_nouns
+        :parameters (?n1 ?n2 - noun)
+        :precondition 
+        (and
+            (sentences_checked)
+            (not (is_itself ?n1))
+            (change_nouns ?n1 ?n2)
+        )
+        :effect 
+        (and
+            (forall (?other - noun ?x - sprite)
+                (and
+                    ; delinking to noun1
+                    (when 
+                        (and 
+                            (has_noun ?x ?n1)
+                            (or
+                                (is_same ?n1 ?other)
+                                (= ?n1 ?other)
+                            )
+                        )
+                        (and
+                            (not (has_noun ?x ?other))
+                            (has_noun ?x ?n2)
+                        )
+                    )
+                )
+            )
+            (not (change_nouns ?n1 ?n2))
+            (relink_nouns)
+        )
+    )
 
+    ; for noun changes that cannot happen because there is the noun1-is-noun1 sentence
+    (:action impossible_noun_change
+        :parameters (?n1 ?n2 - noun)
+        :precondition 
+        (and
+            (is_itself ?n1)
+            (change_nouns ?n1 ?n2) 
+        )
+        :effect 
+        (and
+            (not (change_nouns ?n1 ?n2))
+        )
+    )
+
+    ; linking sprites to all noun texts after they were changed
+    (:action relink
+        :parameters ()
+        :precondition 
+        (and 
+            (relink_nouns)
+            (not 
+                (exists (?n1 ?n2 - noun) 
+                    (change_nouns ?n1 ?n2)
+                )
+            )
+        )
+        :effect 
+        (and
+            (forall (?n1 ?n2 - noun ?x - sprite)
+                (when 
+                    (and
+                        (has_noun ?x ?n1)
+                        (not (has_noun ?x ?n2))
+                        (is_same ?n1 ?n2) 
+                    )
+                    (has_noun ?x ?n2)
+                ) 
+            )
+            (not (relink_nouns))
+        )
+    )
+    
+    ; making sure all nouns have changed before going to the next step
+    (:action finished_noun_change
+        :parameters ()
+        :precondition 
+        (and 
+            (sentences_checked)
+            (not 
+                (exists (?n1 ?n2 - noun) 
+                    (change_nouns ?n1 ?n2)
+                )
+            )
+            (not (relink_nouns))
+        )
+        :effect 
+        (and
+            (not (sentences_checked))
+            (nouns_changed)
+        )
+    )
+
+    ; setup so that the initial state can be simpler
     (:action setup
         :parameters ()
         :precondition (start)
@@ -728,6 +861,5 @@
             (text_moved)
         )
     )
-
 
 )
