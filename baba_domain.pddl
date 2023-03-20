@@ -9,6 +9,10 @@
         is - operator
         you push stop win - property
     )
+    
+    (:constants
+        text_push - push
+    )
 
     (:predicates
         (right_connected ?l1 ?l2 - location)
@@ -64,7 +68,7 @@
         (relink_nouns)
         (nouns_changed)
         (sentences_checked)
-        (rules_updated)
+        (properties_given)
         (start)
         (temp_check)
 
@@ -82,6 +86,19 @@
         (checked_vertical ?o - operator)
         (change_nouns ?n1 ?n2 - text)
         (give_property ?n ?p - text)
+
+        (push_checked ?x - locateable)
+        (check_right ?x - locateable)
+        (check_left ?x - locateable)
+        (check_up ?x - locateable)
+        (check_down ?x - locateable)
+
+        (spreading)
+
+        (is_not_pushable_right ?x - locateable)
+        (is_not_pushable_left ?x - locateable)
+        (is_not_pushable_up ?x - locateable)
+        (is_not_pushable_down ?x - locateable)
     )
 
     ; Used to move the player (objects that have is_you)
@@ -553,7 +570,7 @@
         )
         )
 )
-    
+
     ; Used to update rules if there were any changes to sentence in the game
     (:action remove_properties
         :parameters ()
@@ -841,6 +858,157 @@
             (nouns_changed)
         )
     )
+    
+    ; giving sprites the proper properties
+    (:action add_properties
+        :parameters (?n - noun ?p - property)
+        :precondition 
+        (and 
+            (nouns_changed)
+            (give_property ?n ?p)
+        )
+        :effect 
+        (and
+            (forall (?x - sprite)
+                (when 
+                    (has_noun ?x ?n) 
+                    (has_property ?x ?p)
+                )
+            )
+            (not (give_property ?n ?p))
+        )
+    )
+
+    ; going to next step once all the properties have been given
+    (:action properties_added
+        :parameters ()
+        :precondition 
+        (and 
+            (nouns_changed)
+            (not 
+                (exists (?n - noun ?p - property) 
+                    (give_property ?n ?p)
+                )
+            )
+        )
+        :effect 
+        (and
+            (not (nouns_changed))
+            (properties_given)
+        )
+    )
+
+    ; add checks to all pushable objects on the edges of the grid
+    (:action edge_check
+        :parameters (?x - locateable ?l - location ?p - push)
+        :precondition 
+        (and
+            (properties_given)
+            (has_property ?x ?p)
+            (is_at ?x ?l)
+            (not (push_checked ?x))
+        )
+        :effect 
+        (and 
+            (when 
+                (right_edge ?l) 
+                (check_left ?x)
+            )
+            (when 
+                (left_edge ?l) 
+                (check_right ?x)
+            )
+            (when 
+                (up_edge ?l) 
+                (check_down ?x)
+            )
+            (when 
+                (down_edge ?l) 
+                (check_up ?x)
+            )
+            (push_checked ?x)
+        )
+    )
+
+    ; giving checks in all directions to sprites with the stop attribute
+    (:action stop_check
+        :parameters (?x - locateable ?s - stop)
+        :precondition 
+        (and
+            (properties_given)
+            (has_property ?x ?s)
+            (not (push_checked ?x))
+        )
+        :effect 
+        (and 
+            (check_left ?x)
+            (check_right ?x)
+            (check_down ?x)
+            (check_up ?x)
+            (push_checked ?x)
+        )
+    )
+
+    ; this simplifies the check in begin_spread so it doesnt have to go through a bunch of stuff in the forall
+    (:action others_check
+        :parameters (?x - locateable)
+        :precondition 
+        (and 
+            (properties_given)
+            (not (push_checked ?x))
+            (not (exists (?p - push) (has_property ?x ?p)))
+            (not (exists (?s - stop) (has_property ?x ?s)))
+        )
+        :effect 
+        (and
+            (push_checked ?x)
+        )
+    )
+
+    ; for locatables wihtout location (due to testing and also teh text_push constant)
+    (:action non_location_check
+        :parameters (?x - locateable)
+        :precondition 
+        (and
+            (properties_given)
+            (not (push_checked ?x))
+            (not (exists (?l - location) (is_at ?x ?l)))
+        )
+        :effect 
+        (and
+            (push_checked ?x)
+        )
+    )
+    
+    ; when all the sprites on the edges or all the sprites with 'stop' have been checked, begin spreading the pushable 
+    (:action begin_spread
+        :parameters ()
+        :precondition 
+        (and
+            (properties_given)
+            (forall (?x - locateable)
+                (push_checked ?x)
+            )
+        )
+        :effect 
+        (and
+            (forall (?x - locateable)
+                (not (push_checked ?x))
+            )
+            (spreading)
+            (not (properties_given))
+        )
+    )
+
+    ; ; spread the pushing using the check-direction
+    ; (:action spread_push
+    ;     :parameters (?x - locateable ?l1 ?l2 - location)
+    ;     :precondition 
+    ;     (and 
+            
+    ;     )
+    ;     :effect (and )
+    ; )
 
     ; setup so that the initial state can be simpler
     (:action setup
@@ -857,9 +1025,11 @@
                     (has_noun ?x ?n2)
                 ) 
             )
+            (forall (?t - text)
+                (has_property ?t text_push)
+            )
             (not (start))
             (text_moved)
         )
     )
-
 )
