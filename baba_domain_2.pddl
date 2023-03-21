@@ -71,69 +71,69 @@
         (give_property ?n ?p - text)
 
         (push_checked ?x - locateable)
-        (check ?x - locateable ?dir)
+        (check ?x - locateable ?dir - direction)
 
         (spreading)
 
-        (is_not_pushable ?x - locateable ?dir - direction)
+        (not_pushable ?x - locateable ?dir - direction)
     )
 
     ; Used to move the player (objects that have is_you)
-    (:action move
-        :parameters (?dir - direction)
-        :precondition
-        (or
-            (exists ; if there is one player that has a pushable or background object to their right
-                (?x ?y - locateable ?l1 ?l2 - location) 
-                (and
-                    (is_you ?x)
-                    (is_at ?x ?l1)
-                    (is_at ?y ?l2)
-                    (connected ?l1 ?l2 ?dir)
-                    (or
-                        (is_pushable ?y ?dir)
-                        (is_you ?y)
-                    )
-                )
-            )
-            (exists ; if there is one player that has nothing to their right
-                (?x - locateable ?l1 ?l2 - location)
-                (and
-                    (is_you ?x)
-                    (is_at ?x ?l1)
-                    (connected ?l1 ?l2 ?dir)
-                    (is_empty ?l2)
-                )
-            )
-        )
-        :effect 
-        (forall (?x - locateable ?l1 ?l2 - location)
-            (when 
-                (and
-                    (is_you ?x)
-                    (is_at ?x ?l1)
-                    (connected ?l1 ?l2 ?dir)
-                    (or
-                        (is_empty ?l2)
-                        (exists (?y - locateable)
-                            (and
-                                (is_at ?y ?l2)
-                                (or
-                                    (is_pushable ?y ?dir)
-                                    (is_you ?y)
-                                )
-                            )
-                        )
-                    )
-                )
-                (and
-                    (is_at ?x ?l2)
-                    (not (is_at ?x ?l1))
-                    (moved ?x ?dir)
-                )
-            )
-        )
-    )
+    ; (:action move
+    ;     :parameters (?dir - direction)
+    ;     :precondition
+    ;     (or
+    ;         (exists ; if there is one player that has a pushable or background object to their right
+    ;             (?x - sprite ?y - locateable ?l1 ?l2 - location) 
+    ;             (and
+    ;                 (is_you ?x)
+    ;                 (is_at ?x ?l1)
+    ;                 (is_at ?y ?l2)
+    ;                 (connected ?l1 ?l2 ?dir)
+    ;                 (or
+    ;                     (is_pushable ?y ?dir)
+    ;                     (is_you ?y)
+    ;                 )
+    ;             )
+    ;         )
+    ;         (exists ; if there is one player that has nothing to their right
+    ;             (?x - locateable ?l1 ?l2 - location)
+    ;             (and
+    ;                 (is_you ?x)
+    ;                 (is_at ?x ?l1)
+    ;                 (connected ?l1 ?l2 ?dir)
+    ;                 (is_empty ?l2)
+    ;             )
+    ;         )
+    ;     )
+    ;     :effect 
+    ;     (forall (?x - locateable ?l1 ?l2 - location)
+    ;         (when 
+    ;             (and
+    ;                 (is_you ?x)
+    ;                 (is_at ?x ?l1)
+    ;                 (connected ?l1 ?l2 ?dir)
+    ;                 (or
+    ;                     (is_empty ?l2)
+    ;                     (exists (?y - locateable)
+    ;                         (and
+    ;                             (is_at ?y ?l2)
+    ;                             (or
+    ;                                 (is_pushable ?y ?dir)
+    ;                                 (is_you ?y)
+    ;                             )
+    ;                         )
+    ;                     )
+    ;                 )
+    ;             )
+    ;             (and
+    ;                 (is_at ?x ?l2)
+    ;                 (not (is_at ?x ?l1))
+    ;                 (moved ?x ?dir)
+    ;             )
+    ;         )
+    ;     )
+    ; )
 
     ; Used to move pushed objects (multiple objects in the same square get pushed together (text made on pushable object))
     (:action move_others
@@ -353,7 +353,11 @@
     ; for testing? when operators are not placed at a location the planner gets stuck :/
     (:action operator_missing_location
         :parameters (?o - is)
-        :precondition (not (exists (?l - location) (is_at ?o ?l)))
+        :precondition 
+        (and 
+            (properties_removed)
+            (not (exists (?l - location) (is_at ?o ?l)))
+        )
         :effect (and (checked_horizontal ?o) (checked_vertical ?o))
     )
     
@@ -535,47 +539,62 @@
             (not (push_checked ?x))
         )
         :effect 
-        (and 
+        (and
             (when 
-                (edge ?l right) 
-                (check ?x left)
+                (edge ?l right)
+                (and 
+                    (check ?x left)
+                    (not_pushable ?x right)
+                )
             )
             (when 
                 (edge ?l left) 
-                (check ?x right)
+                (and
+                    (check ?x right)
+                    (not_pushable ?x left)
+                )
             )
             (when 
                 (edge ?l up) 
-                (check ?x down)
+                (and
+                    (check ?x down)
+                    (not_pushable ?x up)
+                )
             )
             (when 
                 (edge ?l down) 
-                (check ?x up)
+                (and
+                    (check ?x up)
+                    (not_pushable ?x down)
+                )
             )
             (push_checked ?x)
         )
     )
 
-    ; giving checks in all directions to sprites with the stop attribute
+    ; ; giving checks in all directions to sprites with the stop attribute
     (:action stop_check
         :parameters (?x - locateable ?s - stop)
         :precondition 
         (and
             (properties_given)
             (has_property ?x ?s)
+            (not (exists (?p - push) (has_property ?x ?p)))
             (not (push_checked ?x))
         )
         :effect 
-        (and 
-            (check ?x left)
-            (check ?x right)
-            (check ?x down)
-            (check ?x up)
+        (and
+            (forall (?dir - direction)
+                (and
+                    (check ?x ?dir)
+                    (not_pushable ?x ?dir)
+                )
+            )
             (push_checked ?x)
         )
     )
 
-    ; this simplifies the check in begin_spread so it doesnt have to go through a bunch of stuff in the forall
+    ; ; this simplifies the check in begin_spread so it doesnt have to go through a bunch of stuff in the forall
     (:action others_check
         :parameters (?x - locateable)
         :precondition 
@@ -591,7 +610,7 @@
         )
     )
 
-    ; for locatables wihtout location (due to testing and also teh text_push constant)
+    ; ; for locatables wihtout location (due to testing and also teh text_push constant)
     (:action non_location_check
         :parameters (?x - locateable)
         :precondition 
@@ -606,7 +625,7 @@
         )
     )
     
-    ; when all the sprites on the edges or all the sprites with 'stop' have been checked, begin spreading the pushable 
+    ; ; when all the sprites on the edges or all the sprites with 'stop' have been checked, begin spreading the pushable 
     (:action begin_spread
         :parameters ()
         :precondition 
@@ -626,15 +645,78 @@
         )
     )
 
-    ; ; spread the pushing using the check-direction
-    ; (:action spread_push
-    ;     :parameters (?x - locateable ?l1 ?l2 - location)
-    ;     :precondition 
-    ;     (and 
-            
-    ;     )
-    ;     :effect (and )
-    ; )
+    ; spread the pushing using the check-direction
+    (:action spread_push_obj
+        :parameters (?x ?y - locateable ?l1 ?l2 - location ?check_dir ?opposite_dir - direction)
+        :precondition 
+        (and 
+            (spreading)
+            (is_at ?x ?l1)
+            (check ?x ?check_dir)
+            (connected ?l1 ?l2 ?check_dir)
+            (connected ?l2 ?l1 ?opposite_dir)
+            (is_at ?y ?l2)
+        )
+        :effect 
+        (and
+            (not (check ?x ?check_dir))
+            (when 
+                (exists (?p - push)
+                    (has_property ?y ?p)
+                ) 
+                (and
+                    (check ?y ?check_dir)
+                    (not_pushable ?y ?opposite_dir)
+                )
+            )
+        )
+    )
+
+    (:action spread_push_edge
+        :parameters (?x - locateable ?l - location ?dir - direction)
+        :precondition 
+        (and 
+            (spreading)
+            (is_at ?x ?l)
+            (check ?x ?dir)
+            (edge ?l ?dir)
+        )
+        :effect 
+        (and
+            (not (check ?x ?dir))
+        )
+    )
+
+    (:action spread_push_empty
+        :parameters (?x - locateable ?l1 ?l2 - location ?dir - direction)
+        :precondition 
+        (and
+            (spreading)
+            (is_at ?x ?l1)
+            (check ?x ?dir)
+            (connected ?l1 ?l2 ?dir)
+            (is_empty ?l2)
+        )
+        :effect 
+        (and
+            (not (check ?x ?dir))
+        )
+    )
+
+    (:action finished_spreading
+        :parameters ()
+        :precondition 
+        (and 
+            (spreading)
+            (not (exists (?x - locateable ?dir - direction) (check ?x ?dir)))
+        )
+        :effect 
+        (and 
+            (not (spreading))
+            (choose_move)
+        )
+    )
+    
 
     ; setup so that the initial state can be simpler
     (:action setup
@@ -653,6 +735,16 @@
             )
             (forall (?t - text)
                 (has_property ?t text_push)
+            )
+            (forall (?l - location)
+                (when 
+                    (not 
+                        (exists (?x - locateable)
+                            (is_at ?x ?l)
+                        )
+                    ) 
+                    (is_empty ?l)
+                )
             )
             (not (start))
             (text_moved)
