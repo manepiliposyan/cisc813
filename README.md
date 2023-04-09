@@ -6,6 +6,8 @@ PDDL implementation of a constrained version of the game Baba Is You. Futher inf
 
 Each pddl domain is used for a single problem. Currently the only domain available is `domain-final before automation.pddl`. This represents a sample domain file that will be used as a model when creating automation of the PDDL files. `test_problem-final before automation.pddl` is the PDDL problem file counterpart.
 
+The PDDL files can be run using the lama-first planner, the plan length should be 213 steps. 
+
 #### Still under work
 
 Creating baseline domains and problem files. These will be added once automation of these files is completed.
